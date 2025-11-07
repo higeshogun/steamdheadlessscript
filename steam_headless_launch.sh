@@ -66,6 +66,8 @@ services:
       - $DATA_DIR/.X11-unix:/tmp/.X11-unix
       - $DATA_DIR/pulse:/run/pulse
       - $GAMES_DIR:/mnt/games
+      - /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:ro
+      - /usr/lib/nvidia:/usr/lib/nvidia:ro
     ports:
       - "8083:8083"
       - "47989:47989/tcp"
