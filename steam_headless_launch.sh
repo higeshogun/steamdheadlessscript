@@ -38,7 +38,6 @@ ENABLE_VNC_AUDIO=true
 NEKO_NAT1TO1=127.0.0.1
 STEAM_ARGS=""
 NVIDIA_VISIBLE_DEVICES=all
-# Removed hard-coded NVIDIA_DRIVER_VERSION
 EOF
 
 # --- DOCKERFILE (NVENC layer) ---
@@ -62,31 +61,4 @@ services:
     restart: unless-stopped
     env_file: .env
     runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
-    volumes:
-      - $DATA_DIR/home:/home/steam
-      - $DATA_DIR/.X11-unix:/tmp/.X11-unix
-      - $DATA_DIR/pulse:/run/pulse
-      - $GAMES_DIR:/mnt/games
-    ports:
-      - "8083:8083"
-      - "47989:47989/tcp"
-      - "47989:47989/udp"
-      - "47990:47990/tcp"
-      - "47998-48010:47998-48010/udp"
-      - "22:22"
-    stdin_open: true
-    tty: true
-EOF
-
-# --- BUILD & LAUNCH ---
-cd $SERVICE_DIR
-docker compose down || true
-docker compose build
-docker compose up -d
-
-echo "✅ Steam-Headless with NVENC + Sunshine is up!"
-echo "Check NVENC: docker exec -it steam-headless ffmpeg -encoders | grep nvenc"
-echo "Check Sunshine: docker exec -it steam-headless pgrep -a sunshine"
+    environment
