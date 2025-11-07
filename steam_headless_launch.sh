@@ -1,64 +1,36 @@
-#!/bin/bash
-set -e
+#!/bin-bash
+set -euxo pipefail
 
-# --- CONFIG ---
-SERVICE_DIR=/opt/container-services/steam-headless
-DATA_DIR=/opt/container-data/steam-headless
-GAMES_DIR=/mnt/games
-IMAGE_NAME=steam-headless-nvenc
+# --- 1. User Configuration ---
+# We will get TAILSCALE_AUTH_KEY from the Vast.ai template's
+# environment variables.
 
-# --- PREP DIRECTORIES ---
-mkdir -p $SERVICE_DIR $DATA_DIR/home $DATA_DIR/.X11-unix $DATA_DIR/pulse $GAMES_DIR
+# --- 2. System Preparation ---
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y git
 
-# --- ENV FILE ---
-cat > $SERVICE_DIR/.env <<EOF
-TZ=Asia/Tokyo
-PUID=1000
-PGID=1000
-UMASK=022
-MODE=desktop
-ENABLE_STEAM=true
-ENABLE_SUNSHINE=true
-HOME_DIR=/home/steam
-SHARED_SOCKETS_DIR=/tmp/.X11-unix
-GAMES_DIR=$GAMES_DIR
-WEB_UI_MODE=novnc
-PORT_NOVNC_WEB=8083
-SUNSHINE_USER=steam
-SUNSHINE_PASS=steam
-SUNSHINE_PORT=47989
-SUNSHINE_WEB_PORT=47990
-SUNSHINE_RESOLUTION=1920x1080
-SUNSHINE_REFRESH_RATE=60
-SHM_SIZE=2g
-USER_LOCALES=en_US.UTF-8
-DISPLAY=:0
-USER_PASSWORD=steam
-ENABLE_VNC_AUDIO=true
-NEKO_NAT1TO1=127.0.0.1
-STEAM_ARGS=""
-NVIDIA_VISIBLE_DEVICES=all
-EOF
+# --- 3. Install Tailscale ---
+echo "Installing Tailscale..."
+curl -fsSL https://tailscale.com/install.sh | sh
 
-# --- DOCKERFILE (NVENC layer) ---
-cat > $SERVICE_DIR/Dockerfile <<'EOF'
-FROM josh5/steam-headless:latest
+# --- 4. Start Tailscale ---
+echo "Starting Tailscale and logging in..."
+if [ -z "$TAILSCALE_AUTH_KEY" ] || [ "$TAILSCALE_AUTH_KEY" == "YOUR_TAILSCALE_AUTH_KEY_HERE" ]; then
+    echo "ERROR: TAILSCALE_AUTH_KEY is not set. Please set it in the Vast.ai template."
+    exit 1
+fi
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      ffmpeg \
-      nvidia-cuda-toolkit && \
-    rm -rf /var/lib/apt/lists/*
-EOF
+tailscale up --authkey=${TAILSCALE_AUTH_KEY} --ssh
 
-# --- COMPOSE FILE ---
-cat > $SERVICE_DIR/docker-compose.yml <<EOF
-services:
-  steam-headless:
-    build: .
-    image: $IMAGE_NAME:latest
-    container_name: steam-headless
-    restart: unless-stopped
-    env_file: .env
-    runtime: nvidia
-    environment
+# --- 5. Clone Steam-Headless Repo ---
+echo "Cloning Steam-Headless repository..."
+git clone https://github.com/Steam-Headless/docker-steam-headless.git /opt/docker-steam-headless
+cd /opt/docker-steam-headless
+
+# --- 6. Launch the Docker Container ---
+echo "Pulling and starting the Steam-Headless container..."
+docker compose -f docs/compose-files/docker-compose.nvidia.yml pull
+docker compose -f docs/compose-files/docker-compose.nvidia.yml up -d
+
+echo "--- Setup Complete ---"
